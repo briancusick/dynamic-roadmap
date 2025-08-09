@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/dynamic-roadmap/static/js/main.6d69231b.js",
+    "main.js": "/dynamic-roadmap/static/js/main.b3c7a6b3.js",
     "index.html": "/dynamic-roadmap/index.html",
-    "main.6d69231b.js.map": "/dynamic-roadmap/static/js/main.6d69231b.js.map"
+    "main.b3c7a6b3.js.map": "/dynamic-roadmap/static/js/main.b3c7a6b3.js.map"
   },
   "entrypoints": [
-    "static/js/main.6d69231b.js"
+    "static/js/main.b3c7a6b3.js"
   ]
 }
