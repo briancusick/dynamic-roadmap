@@ -15,22 +15,44 @@ import {
   Toolbar,
   Divider,
   Fade,
-  useTheme
+  useTheme,
+  Grid,
+  Paper,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineConnector,
+  TimelineContent,
+  TimelineDot,
+} from '@mui/lab';
 import CloseIcon from '@mui/icons-material/Close';
 
-const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3NYYR_UP6jKDx0bOovunIyb4brgSiNpTRipqxtymdC9ywSvB2Uf0TV1y-RN2FiUgyi565KkinVzP3/pub?gid=1161021045&single=true&output=csv'; // Replace with your own Sheet ID
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3NYYR_UP6jKDx0bOovunIyb4brgSiNpTRipqxtymdC9ywSvB2Uf0TV1y-RN2FiUgyi565KkinVzP3/pub?gid=1161021045&single=true&output=csv'; // Capabilities Sheet (updated link)
+const TIMELINE_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQNAhoD4NdY5jChdgV4jOD22chFIH_A1X2tUmUX6-x1TRRkR_uZvU3zzJ51HEvSTsg9QoBROGd0T02P/pub?gid=0&single=true&output=csv'; // Timeline Sheet (new link)
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28EF5', '#F58EA2'];
 
 function App() {
   const [data, setData] = useState([]);
+  const [timelineData, setTimelineData] = useState([]);
+  const [timelineError, setTimelineError] = useState(null);
   const [selectedLever, setSelectedLever] = useState(null);
   const [filterTime, setFilterTime] = useState('All');
   const [drillCap, setDrillCap] = useState(null);
+  const [zoomedPhaseIdx, setZoomedPhaseIdx] = useState(null);
 
   useEffect(() => {
     fetchSheetData(SHEET_CSV_URL).then(setData);
+    fetchSheetData(TIMELINE_CSV_URL)
+      .then(setTimelineData)
+      .catch(err => {
+        setTimelineError('Failed to load timeline data. Please check your Google Sheet link and network connection.');
+      });
   }, []);
 
   // Get unique value levers and time dimensions
@@ -53,38 +75,228 @@ function App() {
   );
 
   const theme = useTheme();
+  // Executive summary data
+  const totalLevers = valueLevers.length;
+  const totalCapabilities = data.length;
+
+  // Parse timeline phases from sheet with error handling
+  const timelinePhases = Array.isArray(timelineData)
+    ? timelineData
+        .filter(row => row && typeof row === 'object')
+        .map(row => ({
+          label: row['Phase Label'] || '',
+          date: row['Phase Date'] || '',
+          owner: row['Phase Owner'] || '',
+          status: row['Phase Status'] || '',
+          summary: row['Phase Summary'] || '',
+          milestones: row['Phase Milestones'] ? row['Phase Milestones'].split(',').map(m => m.trim()) : [],
+          levers: row['Phase Value Levers'] ? row['Phase Value Levers'].split(',').map(l => l.trim()) : [],
+        })
+      )
+        .filter(row => row.label && row.label !== 'Phase Label')
+    : [];
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6fb' }}>
+      {/* Top Navigation Bar */}
       <AppBar position="static" color="primary" elevation={1}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Dynamic Roadmap
           </Typography>
+          <TextField
+            size="small"
+            variant="outlined"
+            placeholder="Search..."
+            sx={{ bgcolor: 'background.paper', borderRadius: 1, minWidth: 180 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
         </Toolbar>
       </AppBar>
+
+      {/* Executive Summary Section */}
+      <Box sx={{ p: { xs: 2, md: 4 }, pb: 0 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary">Total Value Levers</Typography>
+                <Typography variant="h4" color="primary" fontWeight={700}>{totalLevers}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary">Total Capabilities</Typography>
+                <Typography variant="h4" color="primary" fontWeight={700}>{totalCapabilities}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Card elevation={2}>
+              <CardContent>
+                <Typography variant="subtitle2" color="text.secondary">Current Phase</Typography>
+                <Typography variant="h4" color="primary" fontWeight={700}>
+                  {timelinePhases[2]?.label || 'N/A'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {timelinePhases[2]?.date || 'N/A'}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+        <Box sx={{ mt: 4 }}>
+          <Paper elevation={1} sx={{ p: 2, bgcolor: '#e3e7f0' }}>
+            <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>Executive Summary</Typography>
+            <Typography variant="body1" color="text.secondary">
+              This roadmap provides a high-level overview of strategic value levers, associated capabilities, and key milestones. Use the timeline and interactive charts below to explore details and track progress.
+            </Typography>
+          </Paper>
+        </Box>
+        {/* Timeline Section with zoom/expand */}
+        <Box sx={{ mt: 4, mb: 2 }}>
+          <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>Roadmap Timeline</Typography>
+          {timelineError ? (
+            <Paper elevation={2} sx={{ p: 3, textAlign: 'center', bgcolor: '#fffbe6' }}>
+              <Typography variant="body1" color="error">
+                {timelineError}
+              </Typography>
+            </Paper>
+          ) : timelinePhases.length === 0 ? (
+            <Paper elevation={2} sx={{ p: 3, textAlign: 'center', bgcolor: '#fffbe6' }}>
+              <Typography variant="body1" color="text.secondary">
+                Timeline data is not available. Please check your Google Sheet for required columns and published rows.
+              </Typography>
+            </Paper>
+          ) : !Number.isInteger(zoomedPhaseIdx) ? (
+            <Timeline position="alternate">
+              {timelinePhases.map((phase, idx) => (
+                <TimelineItem key={phase.label}>
+                  <TimelineSeparator>
+                    <TimelineDot color={phase.status === 'Complete' ? 'success' : phase.status === 'In Progress' ? 'primary' : 'grey'} />
+                    {idx < timelinePhases.length - 1 && <TimelineConnector />}
+                  </TimelineSeparator>
+                  <TimelineContent>
+                    <Box sx={{ cursor: 'pointer' }} onClick={() => setZoomedPhaseIdx(idx)}>
+                      <Typography variant="subtitle1" fontWeight={600}>{phase.label}</Typography>
+                      <Typography variant="body2" color="text.secondary">{phase.date}</Typography>
+                      <Typography variant="caption" color="text.secondary">{phase.owner}</Typography>
+                    </Box>
+                  </TimelineContent>
+                </TimelineItem>
+              ))}
+            </Timeline>
+          ) : (
+            <Fade in>
+              {timelinePhases[zoomedPhaseIdx] ? (
+                <Box sx={{ p: 3, bgcolor: '#f4f6fb', borderRadius: 2, boxShadow: 2, position: 'relative', minWidth: 320, maxWidth: 520 }}>
+                  <IconButton
+                    aria-label="Back to timeline"
+                    onClick={() => setZoomedPhaseIdx(null)}
+                    sx={{ position: 'absolute', top: 8, right: 8 }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>{timelinePhases[zoomedPhaseIdx].label}</Typography>
+                  <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 1 }}>{timelinePhases[zoomedPhaseIdx].date}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}><strong>Owner:</strong> {timelinePhases[zoomedPhaseIdx].owner}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}><strong>Status:</strong> {timelinePhases[zoomedPhaseIdx].status}</Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>{timelinePhases[zoomedPhaseIdx].summary}</Typography>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Milestones</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                    {timelinePhases[zoomedPhaseIdx].milestones.map((m, i) => (
+                      <Box key={i} sx={{ bgcolor: '#e3e7f0', px: 1.5, py: 0.5, borderRadius: 1, fontSize: 13, color: '#4a4a4a', mr: 1 }}>
+                        {m}
+                      </Box>
+                    ))}
+                  </Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Value Levers</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {timelinePhases[zoomedPhaseIdx].levers.map((l, i) => (
+                      <Box key={i} sx={{ bgcolor: '#d1c4e9', px: 1.5, py: 0.5, borderRadius: 1, fontSize: 13, color: '#4a4a4a', mr: 1 }}>
+                        {l}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              ) : (
+                <Paper elevation={2} sx={{ p: 3, textAlign: 'center', bgcolor: '#fffbe6' }}>
+                  <Typography variant="body1" color="text.secondary">
+                    Timeline phase not found. Please check your Google Sheet for valid data.
+                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <IconButton aria-label="Back to timeline" onClick={() => setZoomedPhaseIdx(null)}>
+                      <CloseIcon />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              )}
+            </Fade>
+          )}
+        </Box>
+      </Box>
+
+      {/* Main Content Layout */}
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, p: { xs: 2, md: 4 } }}>
+        {/* ...existing code... Pie chart and left panel ... */}
         <Box sx={{ width: { xs: '100%', md: 420 }, p: 2 }}>
-          <Card elevation={3} sx={{ mb: 3 }}>
+          <Card elevation={3} sx={{ mb: 3, transition: '0.3s', boxShadow: selectedLever ? 8 : 3 }}>
             <CardContent>
-              <Typography variant="h5" gutterBottom>Value Levers</Typography>
-              <PieChart width={340} height={340}>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={110}
-                  onClick={(_, idx) => setSelectedLever(pieData[idx].name)}
-                  onDoubleClick={(_, idx) => setSelectedLever(pieData[idx].name)}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={index} fill={COLORS[index % COLORS.length]} cursor="pointer" />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                {selectedLever && (
+                  <IconButton
+                    aria-label="Back to all levers"
+                    onClick={() => setSelectedLever(null)}
+                    sx={{ mr: 1 }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
+                <Typography variant="h5" gutterBottom>
+                  {selectedLever ? `Zoom: ${selectedLever}` : 'Value Levers'}
+                </Typography>
+              </Box>
+              <Fade in timeout={400}>
+                <Box>
+                  <PieChart width={selectedLever ? 380 : 340} height={selectedLever ? 380 : 340}>
+                    <Pie
+                      data={selectedLever ? [
+                        {
+                          name: selectedLever,
+                          value: pieData.find(d => d.name === selectedLever)?.value || 0,
+                        }
+                      ] : pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={selectedLever ? 150 : 110}
+                      innerRadius={selectedLever ? 80 : 0}
+                      onClick={(_, idx) => {
+                        if (!selectedLever) setSelectedLever(pieData[idx].name);
+                      }}
+                      onDoubleClick={(_, idx) => {
+                        if (!selectedLever) setSelectedLever(pieData[idx].name);
+                      }}
+                    >
+                      {(selectedLever ? [pieData.find(d => d.name === selectedLever)] : pieData).map((entry, index) => (
+                        <Cell key={index} fill={COLORS[index % COLORS.length]} cursor={selectedLever ? 'default' : 'pointer'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </Box>
+              </Fade>
               <Box sx={{ mt: 3 }}>
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>Filter by Time</Typography>
                 <Select
@@ -102,7 +314,9 @@ function App() {
             </CardContent>
           </Card>
         </Box>
+        {/* ...existing code... Right panel ... */}
         <Box sx={{ flex: 1, p: 2 }}>
+          {/* ...existing code... Capabilities, modal, etc ... */}
           {!selectedLever && (
             <Fade in>
               <Box sx={{ mt: 6, textAlign: 'center', color: theme.palette.text.secondary }}>
@@ -168,8 +382,8 @@ function App() {
                 boxShadow: 24,
                 borderRadius: 2,
                 p: 4,
-                minWidth: 320,
-                maxWidth: 420,
+                minWidth: 340,
+                maxWidth: 480,
                 outline: 'none',
               }}>
                 <IconButton
@@ -184,9 +398,26 @@ function App() {
                     <Typography variant="h6" id="capability-modal-title" sx={{ mb: 2 }}>
                       {drillCap['Capability']}
                     </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                      {drillCap['Tags'] && drillCap['Tags'].split(',').map((tag, i) => (
+                        <Box key={i} sx={{ bgcolor: '#e3e7f0', px: 1.5, py: 0.5, borderRadius: 1, fontSize: 12, color: '#4a4a4a', mr: 1 }}>
+                          {tag.trim()}
+                        </Box>
+                      ))}
+                      {drillCap['Status'] && (
+                        <Box sx={{ bgcolor: drillCap['Status'] === 'Complete' ? '#c8e6c9' : '#ffe0b2', px: 1.5, py: 0.5, borderRadius: 1, fontSize: 12, color: '#4a4a4a', mr: 1 }}>
+                          {drillCap['Status']}
+                        </Box>
+                      )}
+                    </Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                       <strong>Time:</strong> {drillCap['Time Dimension']}
                     </Typography>
+                    {drillCap['Owner'] && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        <strong>Owner:</strong> {drillCap['Owner']}
+                      </Typography>
+                    )}
                     <Typography variant="body1" id="capability-modal-description" sx={{ mb: 2 }}>
                       {drillCap['Description']}
                     </Typography>
@@ -199,6 +430,17 @@ function App() {
                         />
                       </Box>
                     )}
+                    <Divider sx={{ my: 2 }} />
+                    <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                      <IconButton aria-label="Flag for review" color="warning">
+                        {/* You can use a flag icon here if desired */}
+                        <span role="img" aria-label="flag">🚩</span>
+                      </IconButton>
+                      <IconButton aria-label="Comment" color="primary">
+                        {/* You can use a comment icon here if desired */}
+                        <span role="img" aria-label="comment">💬</span>
+                      </IconButton>
+                    </Box>
                   </>
                 )}
               </Box>
