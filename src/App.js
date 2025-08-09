@@ -2,6 +2,22 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { fetchSheetData } from './utils';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Select,
+  MenuItem,
+  Modal,
+  IconButton,
+  AppBar,
+  Toolbar,
+  Divider,
+  Fade,
+  useTheme
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ3NYYR_UP6jKDx0bOovunIyb4brgSiNpTRipqxtymdC9ywSvB2Uf0TV1y-RN2FiUgyi565KkinVzP3/pub?gid=1161021045&single=true&output=csv'; // Replace with your own Sheet ID
 
@@ -36,107 +52,161 @@ function App() {
     (filterTime === 'All' || row['Time Dimension'] === filterTime)
   );
 
+  const theme = useTheme();
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ width: 450, padding: 32 }}>
-        <h2>Value Levers</h2>
-        <PieChart width={400} height={400}>
-          <Pie
-            data={pieData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={120}
-            onClick={(_, idx) => setSelectedLever(pieData[idx].name)}
-            onDoubleClick={(_, idx) => setSelectedLever(pieData[idx].name)}
-          >
-            {pieData.map((entry, index) => (
-              <Cell key={index} fill={COLORS[index % COLORS.length]} cursor="pointer" />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend />
-        </PieChart>
-        <div style={{ marginTop: 24 }}>
-          <label>
-            <strong>Filter by Time: </strong>
-            <select value={filterTime} onChange={e => setFilterTime(e.target.value)}>
-              <option value="All">All</option>
-              {timeDimensions.map(time => (
-                <option key={time} value={time}>{time}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-      <div style={{ flex: 1, padding: 32, background: '#f8f9fa' }}>
-        {!selectedLever && <div>Select a value lever to see capabilities.</div>}
-        {selectedLever && !drillCap && (
-          <>
-            <h3>Capabilities for <span style={{ color: '#0088FE' }}>{selectedLever}</span></h3>
-            {capabilities.length === 0 && <div>No capabilities found for this filter.</div>}
-            {capabilities.map((cap, idx) => (
-              <div
-                key={idx}
-                style={{
-                  background: '#fff',
-                  borderRadius: 8,
-                  padding: 16,
-                  marginBottom: 16,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
-                  cursor: 'pointer'
-                }}
-                onDoubleClick={() => setDrillCap(cap)}
-                title="Double-click for more details"
-              >
-                <strong>{cap['Capability']}</strong>
-                <p>{cap['Description']}</p>
-                {cap['Image URL'] && (
-                  <img
-                    src={cap['Image URL']}
-                    alt={cap['Capability']}
-                    style={{ width: 120, borderRadius: 4, marginTop: 8 }}
-                  />
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6fb' }}>
+      <AppBar position="static" color="primary" elevation={1}>
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Dynamic Roadmap
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, p: { xs: 2, md: 4 } }}>
+        <Box sx={{ width: { xs: '100%', md: 420 }, p: 2 }}>
+          <Card elevation={3} sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h5" gutterBottom>Value Levers</Typography>
+              <PieChart width={340} height={340}>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={110}
+                  onClick={(_, idx) => setSelectedLever(pieData[idx].name)}
+                  onDoubleClick={(_, idx) => setSelectedLever(pieData[idx].name)}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={index} fill={COLORS[index % COLORS.length]} cursor="pointer" />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>Filter by Time</Typography>
+                <Select
+                  value={filterTime}
+                  onChange={e => setFilterTime(e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 120 }}
+                >
+                  <MenuItem value="All">All</MenuItem>
+                  {timeDimensions.map(time => (
+                    <MenuItem key={time} value={time}>{time}</MenuItem>
+                  ))}
+                </Select>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ flex: 1, p: 2 }}>
+          {!selectedLever && (
+            <Fade in>
+              <Box sx={{ mt: 6, textAlign: 'center', color: theme.palette.text.secondary }}>
+                <Typography variant="h6">Select a value lever to see capabilities.</Typography>
+              </Box>
+            </Fade>
+          )}
+          {selectedLever && !drillCap && (
+            <Fade in>
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Capabilities for <span style={{ color: '#0088FE' }}>{selectedLever}</span>
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {capabilities.length === 0 && (
+                  <Typography color="text.secondary">No capabilities found for this filter.</Typography>
                 )}
-              </div>
-            ))}
-            <div style={{ fontSize: 12, color: '#888' }}>
-              Double-click a capability for more details.
-            </div>
-          </>
-        )}
-        {drillCap && (
-          <div style={{
-            background: '#fff',
-            borderRadius: 8,
-            padding: 24,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.13)',
-            position: 'relative'
-          }}>
-            <button
-              onClick={() => setDrillCap(null)}
-              style={{
-                position: 'absolute', top: 12, right: 12, border: 'none',
-                background: '#eee', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer'
-              }}
-              title="Close"
-            >×</button>
-            <h3>{drillCap['Capability']}</h3>
-            <p><strong>Time:</strong> {drillCap['Time Dimension']}</p>
-            <p>{drillCap['Description']}</p>
-            {drillCap['Image URL'] && (
-              <img
-                src={drillCap['Image URL']}
-                alt={drillCap['Capability']}
-                style={{ width: 240, borderRadius: 4, marginTop: 8 }}
-              />
-            )}
-            {/* Add more details or elements as needed */}
-          </div>
-        )}
-      </div>
-    </div>
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  {capabilities.map((cap, idx) => (
+                    <Card
+                      key={idx}
+                      elevation={2}
+                      sx={{ cursor: 'pointer', transition: '0.2s', '&:hover': { boxShadow: 6 } }}
+                      onDoubleClick={() => setDrillCap(cap)}
+                      title="Double-click for more details"
+                    >
+                      <CardContent>
+                        <Typography variant="subtitle1" fontWeight={600}>{cap['Capability']}</Typography>
+                        <Typography variant="body2" color="text.secondary">{cap['Description']}</Typography>
+                        {cap['Image URL'] && (
+                          <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <img
+                              src={cap['Image URL']}
+                              alt={cap['Capability']}
+                              style={{ width: 100, borderRadius: 4 }}
+                            />
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                  Double-click a capability for more details.
+                </Typography>
+              </Box>
+            </Fade>
+          )}
+          <Modal
+            open={!!drillCap}
+            onClose={() => setDrillCap(null)}
+            closeAfterTransition
+            aria-labelledby="capability-modal-title"
+            aria-describedby="capability-modal-description"
+          >
+            <Fade in={!!drillCap}>
+              <Box sx={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                bgcolor: 'background.paper',
+                boxShadow: 24,
+                borderRadius: 2,
+                p: 4,
+                minWidth: 320,
+                maxWidth: 420,
+                outline: 'none',
+              }}>
+                <IconButton
+                  onClick={() => setDrillCap(null)}
+                  sx={{ position: 'absolute', top: 8, right: 8 }}
+                  aria-label="close"
+                >
+                  <CloseIcon />
+                </IconButton>
+                {drillCap && (
+                  <>
+                    <Typography variant="h6" id="capability-modal-title" sx={{ mb: 2 }}>
+                      {drillCap['Capability']}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <strong>Time:</strong> {drillCap['Time Dimension']}
+                    </Typography>
+                    <Typography variant="body1" id="capability-modal-description" sx={{ mb: 2 }}>
+                      {drillCap['Description']}
+                    </Typography>
+                    {drillCap['Image URL'] && (
+                      <Box sx={{ textAlign: 'center', mt: 2 }}>
+                        <img
+                          src={drillCap['Image URL']}
+                          alt={drillCap['Capability']}
+                          style={{ width: 200, borderRadius: 4 }}
+                        />
+                      </Box>
+                    )}
+                  </>
+                )}
+              </Box>
+            </Fade>
+          </Modal>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
